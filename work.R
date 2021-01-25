@@ -1,25 +1,46 @@
 library(tidyverse)
-library(tidygraph)
+# library(tidygraph)
 library(RColorBrewer)
 
-
 ##### FUNCTIONS
-is_outlier <- function(x) {
-  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
-}
 
 ##### MAIN
 
-rawData <- read_csv("Raw_data.csv") 
+rawData <- read_csv("Raw_data.csv")
+sd <- rawData %>% select(2:11) %>% summarise_each(sd)
+d <- gather(sd) %>% mutate(year = as.numeric(key)) %>% select(year, value) %>% rename(sd_rainfall = value)
 
-# Look for outliers: do these occur later in the series?
-tbl <- (gather(rawData, "2011":"2020", key = "year", value = "cases")
-        %>% rename("month" = 1, "records" = 3)
-        %>% mutate(outlier=ifelse(is_outlier(records), paste(month, " ", year), NA)))
+f <- ggplot(d, aes(year, sd_rainfall)) +
+     geom_point()
+f
+
+dMax <- (rawData %>% select(2:11) 
+         %>% summarise_each(max)
+         %>% gather()
+         %>% mutate(year = as.numeric(key))
+         %>% select(year, value)
+         %>% rename(max = value))
+
+dMin <- (rawData %>% select(2:11) 
+         %>% summarise_each(min)
+         %>% gather()
+         %>% mutate(year = as.numeric(key))
+         %>% select(year, value)
+         %>% rename(min = value))
+
+d <- left_join(dMax, dMin, by = "year") %>% mutate(range = max - min)
+
+f <- ggplot(d, aes(year, range)) +
+  geom_point()
+f
+
+month <- factor(rawData$Year, levels = rawData$Year)
+tbl <- as_tibble(data.frame(month, rawData[,2:11])) %>% mutate(x = as.numeric(as.factor(month)))
+ggplot(tbl, aes(x, X2011)) +
+        geom_smooth() +
+        geom_smooth(aes(X2012), colour = "red")
 
 
-p <- ggplot(tbl, aes(y=records)) +
-  geom_boxplot(outlier.colour = "red") +
-  geom_text(aes(x=0, label=outlier),na.rm=TRUE, position = position_dodge(width=NULL),  size=2)
-p
+
+
 
